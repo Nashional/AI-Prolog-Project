@@ -1,0 +1,112 @@
+/*   
+     Query to be used: 
+     ?- ucsRoute([[Start,[Start],[]]],Route,Distance). 
+     To find a route between two points, edit the query to to have the starting point of the
+     desired route. Example, to find the route from arad to iasi, the destination fact is 
+     filled in with the destination and the following shows how the query is written for this route:
+   
+     ?- ucsRoute([[arad,[arad],[]]],Route,Distance).
+     
+     The aim of the program is to give the total distance and the shortest valid route between any
+     two points of the map.
+*/
+
+     destination(iasi).  %  Can be changed to any other final destination point. 
+
+     road(arad, zerind, 75).  			%  The structure of each road between two connected
+     road(arad, sibiu, 140).			%  locations in the form of road(location one, location 
+     road(arad, timisoara, 118).		%  two, distance between both locations).
+     road(zerind, oradea, 71).
+     road(oradea, sibiu, 151).
+     road(timisoara, lugoj, 111).
+     road(lugoj, mehadia, 70).
+     road(mehadia, dobreta, 75).
+     road(dobreta, craiova, 120).
+     road(craiova, rimnicu_vilcea, 146).
+     road(craiova, pitesti, 138).
+     road(rimnicu_vilcea, sibiu, 80).
+     road(rimnicu_vilcea, pitesti, 97).
+     road(sibiu, fagaras, 99).
+     road(fagaras, bucharest, 221).
+     road(pitesti, bucharest, 101).
+     road(bucharest, giurgiu, 90).
+     road(bucharest, urziceni, 85).
+     road(urziceni, vasiui, 142).
+     road(vasiui, iasi, 92).
+     road(iasi, neamt, 87).
+     road(urziceni, hirsova, 98).
+     road(hirsova, eforie, 86).
+
+     route(X,[X,Y,D],Y):-road(X,Y,D);road(Y,X,D).	
+
+/*   The above line is the structure of a valid route to specify that regardless of the order
+	 of two connected locations represented as a road, it is the same route.
+     ie. (location 1, location 2, distance) is the same route as 
+     (location 2, location 2, distance) 
+*/
+
+     ucsRoute(Fringe, Steps, Distance):-
+       findshortestPath(Fringe, Steps),
+       distance(Steps, Distance).
+
+/*   ucsRoute is what is called by the query to begin the program. It initially takes a fringe
+     section of the map being presently analysed. The fring contains information such as the
+     present node/location that the program is at, a history of nodes that have been visted and
+     the steps/moves taken to get to this node.
+     
+     Steps in the ucsRoute rule represents the final route that is to be returned as Distance
+     represents the final total distance to be returned.
+*/
+
+     findshortestPath([[Position, _, Steps]|_], Steps):-destination(Position).
+     findshortestPath([[Position, Record, Steps]|T],OtherSteps):-
+       expand([Position, Record, Steps], Successors),
+       append(T, Successors, NewFringe),
+       sortDistance(NewFringe, SortedNewFringe),
+       findshortestPath(SortedNewFringe, OtherSteps).
+
+/*   ucsRoute will cause findshortestPath to be called. The present node/location passed from the 
+     the fringe is used to match with the destination fact to see if that destination is reached.
+     Upon failure of this match test, that present node will be expanded to find all the successors 
+     of the node.*/
+
+     expand([Position, Record, Steps], Successors):-
+       findall(
+          [Position1, [Position1|Record], NewSteps],
+          (route(Position, Step, Position1),
+          \+ member(Position1,Record),				%  To avoid any infinite loops that may occur.
+          append(Steps, [Step], NewSteps)),
+          Successors
+       ).
+
+/*   Upon the the expansion of the node a list of all the successors are stored to the variable
+     "Successors".
+*/
+
+     distance([], 0).
+     distance([[_, _,D]], D).
+     distance([[_, _, D]|T], CummulativeDistance):-distance(T, D2), CummulativeDistance is D+D2.
+
+     sortDistance([],[]).
+     sortDistance([S],[S]).
+     sortDistance([H|T],S):- sortDistance(T,ST), insertDistance(H,ST,S).
+
+     insertDistance([S, H, M], [[S1, H1, M1]|T], [[S, H, M], [S1, H1, M1]|T]):- distance(M, D), distance(M1, D1), D1>=D.
+     insertDistance([S, H, M], [[S1, H1, M1]|T], [[S1, H1, M1], [S, H, M]|T]):- distance(M, D), distance(M1, D1), D1<D.
+
+/*   For each of the nodes in the list of successors, the program calculates the cummulative 
+     distance from the start node to that successor node and compares it with the currently 
+     stored cummulative distance to see if an update should be made. From there a final sorted
+     list is created with the head of that list being the successor node that produces the 
+     shortest total path. The new head of the list is checked against the destination fact to 
+     check if the destination has been reached. In the event that the head of this list is not 
+     the goal destination it is now set as the state/current node and the whole process is redone
+     until the destination is reached. When this destination is reached, the total path which 
+     is the shortest distance is reported along with the order in which each location should be 
+     visited.
+ 
+     _________________________________________________________________________________________________________________________________________________________________________
+     Reference 1: http: //mgencer.com/files/PrologTutorial.html
+     Reference 2: https://github.com/christian-vigh/prolog-experiments/blob/master/External%20Sources/Sources/AI/Basic%20Algorithms/Solving%20by%20search%20-%20search1.pl
+     
+ */
